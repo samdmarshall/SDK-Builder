@@ -173,8 +173,11 @@ def main(argv):
     parser.add_argument('-v','--verbose', help='add verbosity', action='count');
     args = parser.parse_args();
     
-    kVerboseLogLevel = args.verbose;
-        
+    if args.verbose == None:
+        kVerboseLogLevel = 0;
+    else:
+        kVerboseLogLevel = args.verbose;
+    
     if sdk_template_exists(args.sdk) == False:
         v_log('Could not find SDK template!',0, kVerboseLogLevel);
         sys.exit();
@@ -189,8 +192,13 @@ def main(argv):
     sdk_type = get_sdk_template_taget(kSDKSettingsPlist)
     platform_path = resolve_platform_path(sdk_type);
     sdk_exists = sdk_is_installed(kSDKSettingsPlist, platform_path);
+    sdk_name = get_sdk_name(kSDKSettingsPlist);
+    kPrivateSDK = os.path.join(platform_path, sdk_name);
     
-    kPrivateSDK = os.path.join(platform_path, get_sdk_name(kSDKSettingsPlist));
+    if sdk_exists == True and args.force == True:
+        v_log('Removing previous install of \''+sdk_name+'\'. This will take a few minutes',0,kVerboseLogLevel);
+        shutil.rmtree(kPrivateSDK);
+        sdk_exists = False;
     
     if sdk_exists == False:
         v_log('Creating SDK from template...',0, kVerboseLogLevel);
@@ -219,6 +227,7 @@ def main(argv):
                 
     else:
         v_log('SDK \''+get_sdk_name(kSDKSettingsPlist)+'\' already exists.\n\tUse `-u` or `--update` to update the existing SDK.\n\tUse `-f` or `--force`  to overwrite the existing SDK.',0, kVerboseLogLevel);
+        sys.exit();
     
     sdk_settings_plist = os.path.join(args.sdk, kSDKSettingsPlistName)
     if file_exists(sdk_settings_plist) == True:
