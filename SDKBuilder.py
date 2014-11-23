@@ -88,11 +88,13 @@ def iterate_sdk(path, template_path, sdk_path, kVerboseLogLevel):
             private_sdk_item_path = os.path.join(sdk_path, sdk_item_path);
             is_sym_link = os.path.islink(original_path);
             if is_sym_link == False:
+                v_log('Creating directory \"'+private_sdk_item_path+'\"...',5,kVerboseLogLevel);
                 make_dir(private_sdk_item_path);
             else:
                 link_path = os.path.realpath(original_path);
                 sdk_link = link_path.split(template_path)[1];
                 sdk_target_link = os.path.join(sdk_path, sdk_link);
+                v_log('Creating symlink \"'+sdk_target_link+'\" -> \"'+private_sdk_item_path+'\"',5,kVerboseLogLevel);
                 make_sym(sdk_target_link, private_sdk_item_path);
             
         
@@ -102,6 +104,7 @@ def iterate_sdk(path, template_path, sdk_path, kVerboseLogLevel):
             private_sdk_item_path = os.path.join(sdk_path, sdk_item_path);
             if name != '.DS_Store':
                 if file_exists(private_sdk_item_path) == False:
+                    v_log('Copying item \"'+original_path+'\"...',5,kVerboseLogLevel);
                     shutil.copy2(original_path, os.path.dirname(private_sdk_item_path));
                 else:
                     if should_update(private_sdk_item_path, os.path.join(template_path, sdk_item_path)) == True and os.path.islink(private_sdk_item_path) == False:
@@ -110,6 +113,7 @@ def iterate_sdk(path, template_path, sdk_path, kVerboseLogLevel):
 def copy_internal(path, template_path, sdk_path, kVerboseLogLevel):
     internal_path = os.path.join(sdk_path, path)
     if file_exists(internal_path) == False:
+        v_log('Creating directory \"'+internal_path+'\"...',5,kVerboseLogLevel);
         os.mkdir(internal_path)
     iterate_sdk(path, template_path, sdk_path, kVerboseLogLevel)
 def copy_private(path, template_path, sdk_path, kVerboseLogLevel):
