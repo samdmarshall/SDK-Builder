@@ -182,6 +182,9 @@ def main(argv):
     else:
         kVerboseLogLevel = args.verbose;
     
+    if args.sdk[-1] != '/':
+        args.sdk += '/';
+    
     if sdk_template_exists(args.sdk) == False:
         v_log('Could not find SDK template!',0, kVerboseLogLevel);
         sys.exit();
