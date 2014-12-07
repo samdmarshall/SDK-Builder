@@ -14,6 +14,8 @@ kSDKSettingsPlist = '';
 kVerboseLogLevel = 0;
 kPrivateSDK = '';
 kBaseSDKPath = '';
+kSDKAction = '';
+kExportPath = '';
 # Helper Functions
 def v_log(message, level, kVerboseLogLevel):
     if kVerboseLogLevel >= level:
@@ -35,16 +37,15 @@ def sdk_template_exists(path):
         return file_exists(os.path.join(path, kSDKSettingsPlist));
     return False;
 def make_xcrun_call(call_args):
-    error = 0
-    output = ''
+    error = 0;
+    output = '';
     try:
-        output = subprocess.check_output(call_args)
-        error = 0
+        output = subprocess.check_output(call_args);
+        error = 0;
     except CalledProcessError as e:
-        output = e.output
-        error = e.returncode
-    
-    return (output, error)
+        output = e.output;
+        error = e.returncode;
+    return (output, error);
 def load_sdk_template_list(path):
     return plistlib.readPlist(path);
 def get_sdk_template_taget(plist):
@@ -61,22 +62,20 @@ def resolve_platform_path(sdk_type):
     if xcrun_result[1] != 0:
         v_log('Please run Xcode first!',0, kVerboseLogLevel);
         sys.exit();
-    
     platform_path = xcrun_result[0].rstrip('\n');
     platform_path = os.path.join(platform_path, 'Developer/SDKs/');
     return platform_path;
 def resolve_sdk_path(kSDKSettingsPlist):
-    base_sdk_path = ''
+    base_sdk_path = '';
     base_sdk_name = kSDKSettingsPlist['BaseSDKName'];
     if base_sdk_name == '':
         v_log('Invalid SDK template',0, kVerboseLogLevel);
         sys.exit();
-    xcrun_result = make_xcrun_call(('xcrun', '--show-sdk-path', '--sdk', base_sdk_name))
+    xcrun_result = make_xcrun_call(('xcrun', '--show-sdk-path', '--sdk', base_sdk_name));
     if xcrun_result[1] != 0:
         v_log('Please run Xcode first!',0, kVerboseLogLevel);
-        sys.exit()
-    
-    base_sdk_path = xcrun_result[0].rstrip('\n')
+        sys.exit();
+    base_sdk_path = xcrun_result[0].rstrip('\n');
     return base_sdk_path;
 # SDK Functions
 def iterate_sdk(path, template_path, sdk_path, kVerboseLogLevel):
@@ -114,7 +113,7 @@ def copy_internal(path, template_path, sdk_path, kVerboseLogLevel):
     internal_path = os.path.join(sdk_path, path)
     if file_exists(internal_path) == False:
         v_log('Creating directory \"'+internal_path+'\"...',5,kVerboseLogLevel);
-        os.mkdir(internal_path)
+        os.mkdir(internal_path);
     iterate_sdk(path, template_path, sdk_path, kVerboseLogLevel)
 def copy_private(path, template_path, sdk_path, kVerboseLogLevel):
     iterate_sdk(path, template_path, sdk_path, kVerboseLogLevel)
@@ -131,12 +130,16 @@ def walk_sdk_dirs(root, kBaseSDKPath, kPrivateSDK, dirs, kVerboseLogLevel):
                 private_sdk_path = os.path.join(kPrivateSDK, sdk_item_path)
                 make_sym(original_path, private_sdk_path)
 def walk_sdk_files(root, kBaseSDKPath, kPrivateSDK, files, kVerboseLogLevel):
+    global kSDKAction;
     for name in files:
         original_path = os.path.join(root, name)
         sdk_item_path = original_path.split(kBaseSDKPath+'/')[1]
         if sdk_item_path != kSDKSettingsPlist:
-            private_sdk_path = os.path.join(kPrivateSDK, sdk_item_path)
-            make_sym(original_path, private_sdk_path)
+            private_sdk_path = os.path.join(kPrivateSDK, sdk_item_path);
+            if kSDKAction == 'default':
+                make_sym(original_path, private_sdk_path)
+            else:
+                shutil.copy2(original_path, private_sdk_path);
 def walk_sdk_frameworks(root, kBaseSDKPath, kPrivateSDK, dirs, kVerboseLogLevel):
     for name in dirs:
         original_path = os.path.join(root, name)
@@ -175,7 +178,15 @@ def main(argv):
     parser.add_argument('-u','--update', help='update sdk from template', action='store_true');
     parser.add_argument('-f','--force', help='force action', action='store_true');
     parser.add_argument('-v','--verbose', help='add verbosity', action='count');
+    parser.add_argument('-e','--export', help='build the SDK bundle to a specific directory', action='store');
     args = parser.parse_args();
+    
+    if args.export == None:
+        kSDKAction = 'default';
+    else:
+        kSDKAction = 'export';
+        if args.export[-1] != '/':
+            args.export += '/';
     
     if args.verbose == None:
         kVerboseLogLevel = 0;
@@ -198,9 +209,16 @@ def main(argv):
     
     sdk_type = get_sdk_template_taget(kSDKSettingsPlist)
     platform_path = resolve_platform_path(sdk_type);
-    sdk_exists = sdk_is_installed(kSDKSettingsPlist, platform_path);
     sdk_name = get_sdk_name(kSDKSettingsPlist);
     kPrivateSDK = os.path.join(platform_path, sdk_name);
+    
+    sdk_exists = True;
+    if kSDKAction == 'default':
+        sdk_exists = sdk_is_installed(kSDKSettingsPlist, platform_path);
+    else:
+        args.export += sdk_name + '/';
+        kPrivateSDK = args.export;
+        sdk_exists = file_exists(kPrivateSDK);
     
     if sdk_exists == True and args.force == True:
         v_log('Removing previous install of \''+sdk_name+'\'. This will take a few minutes',0,kVerboseLogLevel);
@@ -213,6 +231,8 @@ def main(argv):
         
         kBaseSDKPath = resolve_sdk_path(kSDKSettingsPlist);
         v_log('Using base SDK path: '+kBaseSDKPath,1, kVerboseLogLevel);
+        if args.export != None:
+            v_log('Exporting to path: '+args.export, 0, kVerboseLogLevel);
         for root, dirs, files in os.walk(kBaseSDKPath, followlinks=False):
             walk_sdk_dirs(root, kBaseSDKPath, kPrivateSDK, dirs, kVerboseLogLevel)
             walk_sdk_files(root, kBaseSDKPath, kPrivateSDK, files, kVerboseLogLevel)
